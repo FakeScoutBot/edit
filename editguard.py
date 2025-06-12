@@ -116,74 +116,32 @@ async def start_command(client: Client, message: Message):
         bot_mention = f"<a href='tg://user?id={bot_info.id}'>{bot_info.first_name}</a>"
         
         welcome_text = f"""
-<b>ʜᴇʏ, {user_mention}
+👋 𝐇𝐞𝐲, {user_mention}
 
-ɪ ᴀᴍ {bot_mention} ♡ 
+𝐈 𝐚𝐦 {bot_mention} ♡ 
 
-<u>ꜰᴇᴀᴛᴜʀᴇꜱ:</u>
-• ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴅᴇʟᴇᴛᴇ ᴇᴅɪᴛᴇᴅ ᴍᴇꜱꜱᴀɢᴇꜱ (ᴇxᴄᴇᴘᴛ ꜰʀᴏᴍ ᴀᴅᴍɪɴꜱ)
-• ɴᴏᴛɪꜰʏ ɢʀᴏᴜᴘ ᴡʜᴇɴ ᴀ ᴍᴇꜱꜱᴀɢᴇ ɪꜱ ᴇᴅɪᴛᴇᴅ
-• ᴇᴀꜱʏ ᴛᴏ ᴀᴅᴅ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘꜱ
-• ᴀᴅᴍɪɴꜱ ᴄᴀɴ ᴇᴅɪᴛ ᴍᴇꜱꜱᴀɢᴇꜱ ᴡɪᴛʜᴏᴜᴛ ᴅᴇʟᴇᴛɪᴏɴ
+<u>⚡ 𝐅𝐞𝐚𝐭𝐮𝐫𝐞𝐬:</u>
+✅ 𝐀𝐮𝐭𝐨𝐦𝐚𝐭𝐢𝐜𝐚𝐥𝐥𝐲 𝐝𝐞𝐥𝐞𝐭𝐞 𝐞𝐝𝐢𝐭𝐞𝐝 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬 (𝐄𝐱𝐜𝐞𝐩𝐭 𝐟𝐫𝐨𝐦 𝐚𝐝𝐦𝐢𝐧𝐬).
+✅ 𝐍𝐨𝐭𝐢𝐟𝐲 𝐰𝐡𝐞𝐧 𝐚 𝐦𝐞𝐬𝐬𝐚𝐠𝐞 𝐢𝐬 𝐞𝐝𝐢𝐭𝐞𝐝.
+✅ 𝐄𝐚𝐬𝐲 𝐭𝐨 𝐚𝐝𝐝 𝐭𝐨 𝐲𝐨𝐮𝐫 𝐠𝐫𝐨𝐮𝐩𝐬.
 
-<u>ꜱᴇᴛᴜᴘ:</u>
-1. ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ
-2. ᴍᴀᴋᴇ ᴍᴇ ᴀɴ ᴀᴅᴍɪɴ ᴡɪᴛʜ ᴅᴇʟᴇᴛᴇ ᴍᴇꜱꜱᴀɢᴇꜱ ᴘᴇʀᴍɪꜱꜱɪᴏɴ
-3. ɪ'ʟʟ ꜱᴛᴀʀᴛ ᴍᴏɴɪᴛᴏʀɪɴɢ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ!
+<u>⚙️ 𝐒𝐞𝐭𝐮𝐩:</u>
+⦿ 𝐀𝐝𝐝 𝐦𝐞 𝐭𝐨 𝐲𝐨𝐮𝐫 𝐠𝐫𝐨𝐮𝐩
+⦿ 𝐌𝐚𝐤𝐞 𝐦𝐞 𝐚𝐧 𝐚𝐝𝐦𝐢𝐧 𝐰𝐢𝐭𝐡 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞 𝐩𝐞𝐫𝐦𝐢𝐬𝐬𝐢𝐨𝐧
+⦿ 𝐈'𝐥𝐥 𝐬𝐭𝐚𝐫𝐭 𝐦𝐨𝐧𝐢𝐭𝐨𝐫𝐢𝐧𝐠 𝐚𝐮𝐭𝐨𝐦𝐚𝐭𝐢𝐜𝐚𝐥𝐥𝐲!
 
-<u>ɴᴏᴛᴇ:</u> ɪ ɴᴇᴇᴅ ᴀᴅᴍɪɴ ʀɪɢʜᴛꜱ ᴛᴏ ᴅᴇʟᴇᴛᴇ ᴍᴇꜱꜱᴀɢᴇꜱ. ᴀᴅᴍɪɴ ᴍᴇꜱꜱᴀɢᴇꜱ ᴡᴏɴ'ᴛ ʙᴇ ᴅᴇʟᴇᴛᴇᴅ ᴡʜᴇɴ ᴇᴅɪᴛᴇᴅ.</b>
+<u>⚠️ 𝐍𝐨𝐭𝐞:</u> 𝐈 𝐧𝐞𝐞𝐝 𝐚𝐝𝐦𝐢𝐧 𝐫𝐢𝐠𝐡𝐭𝐬 𝐭𝐨 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬. 𝐀𝐝𝐦𝐢𝐧 𝐌𝐞𝐬𝐬𝐚𝐠𝐞𝐬 𝐰𝐨𝐧'𝐭 𝐛𝐞 𝐝𝐞𝐥𝐞𝐭𝐞𝐝 𝐰𝐡𝐞𝐧 𝐞𝐝𝐢𝐭𝐞𝐝.
         """
         
         await message.reply_text(
             welcome_text,
             reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True
+            disable_web_page_preview=True,
+            parse_mode=ParseMode.HTML
         )
         
     except Exception as e:
         logger.error(f"Error in start command: {e}")
-
-@app.on_message(filters.command("help"))
-async def help_command(client: Client, message: Message):
-    """Handle /help command"""
-    try:
-        help_text = """
-🆘 **Help - Edit Delete Bot**
-
-**Commands:**
-• `/start` - Show welcome message
-• `/help` - Show this help message
-• `/status` - Check bot status in group
-
-**How it works:**
-1. I monitor all messages in the group
-2. When someone edits their message, I delete it (except for admins)
-3. I send a notification with the person's name
-4. The notification includes a button to add me to other groups
-5. Admins can edit their messages freely without deletion
-
-**Required Permissions:**
-• Delete messages
-• Send messages
-
-**Need support?** Contact the bot developer.
-        """
-        
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton(
-                "➕ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ", 
-                url=f"https://t.me/{(await client.get_me()).username}?startgroup=true"
-            )]
-        ])
-        
-        await message.reply_text(
-            help_text,
-            reply_markup=keyboard
-        )
-        
-    except Exception as e:
-        logger.error(f"Error in help command: {e}")
 
 @app.on_message(filters.command("status") & filters.group)
 async def status_command(client: Client, message: Message):
