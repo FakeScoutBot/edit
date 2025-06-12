@@ -4,7 +4,9 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode, ChatMemberStatus
 from pyrogram.errors import MessageDeleteForbidden, ChatAdminRequired
 import logging
-from config import API_ID, API_HASH, BOT_TOKEN
+from datetime import datetime, timedelta
+import motor.motor_asyncio
+from config import API_ID, API_HASH, BOT_TOKEN, MONGODB_URI
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -13,10 +15,69 @@ logger = logging.getLogger(__name__)
 # Create the bot client
 app = Client("edit_delete_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# Dictionary to store original messages
-original_messages = {}
+# MongoDB setup
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
+db = client.editguard_bot
+messages_collection = db.messages
+
+class MessageStorage:
+    """MongoDB-based message storage"""
+    
+    @staticmethod
+    async def store_message(message_id: int, text: str, user_id: int, chat_id: int):
+        """Store original message in MongoDB"""
+        try:
+            document = {
+                "_id": message_id,
+                "text": text,
+                "user_id": user_id,
+                "chat_id": chat_id,
+                "timestamp": datetime.utcnow()
+            }
+            
+            await messages_collection.replace_one(
+                {"_id": message_id}, 
+                document, 
+                upsert=True
+            )
+            logger.debug(f"Stored message {message_id} in database")
+            
+        except Exception as e:
+            logger.error(f"Error storing message in database: {e}")
+    
+    @staticmethod
+    async def get_message(message_id: int):
+        """Retrieve original message from MongoDB"""
+        try:
+            document = await messages_collection.find_one({"_id": message_id})
+            return document
+        except Exception as e:
+            logger.error(f"Error retrieving message from database: {e}")
+            return None
+    
+    @staticmethod
+    async def delete_message(message_id: int):
+        """Delete message from MongoDB"""
+        try:
+            await messages_collection.delete_one({"_id": message_id})
+            logger.debug(f"Deleted message {message_id} from database")
+        except Exception as e:
+            logger.error(f"Error deleting message from database: {e}")
+    
+    @staticmethod
+    async def cleanup_old_messages():
+        """Clean up messages older than 7 days"""
+        try:
+            cutoff_date = datetime.utcnow() - timedelta(days=7)
+            result = await messages_collection.delete_many({
+                "timestamp": {"$lt": cutoff_date}
+            })
+            logger.info(f"Cleaned up {result.deleted_count} old messages from database")
+        except Exception as e:
+            logger.error(f"Error cleaning up old messages: {e}")
 
 async def is_admin(chat_id: int, user_id: int) -> bool:
+    """Check if user is admin in the chat"""
     try:
         member = await app.get_chat_member(chat_id, user_id)
         return member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]
@@ -28,20 +89,16 @@ async def is_admin(chat_id: int, user_id: int) -> bool:
 async def store_original_message(client: Client, message: Message):
     """Store original messages to track edits"""
     try:
-        # Store the original message content
-        original_messages[message.id] = {
-            "text": message.text or message.caption,
-            "user_id": message.from_user.id,
-            "chat_id": message.chat.id,
-            "message_id": message.id
-        }
-        
-        # Clean up old messages (keep only last 1000 to save memory)
-        if len(original_messages) > 1000:
-            # Remove oldest entries
-            oldest_keys = list(original_messages.keys())[:100]
-            for key in oldest_keys:
-                del original_messages[key]
+        # Only store messages that have text or caption
+        if message.text or message.caption:
+            text_content = message.text or message.caption
+            
+            await MessageStorage.store_message(
+                message_id=message.id,
+                text=text_content,
+                user_id=message.from_user.id,
+                chat_id=message.chat.id
+            )
                 
     except Exception as e:
         logger.error(f"Error storing message: {e}")
@@ -50,15 +107,15 @@ async def store_original_message(client: Client, message: Message):
 async def handle_edited_message(client: Client, message: Message):
     """Handle edited messages - delete them and send notification (skip admins)"""
     try:
-        # Check if we have the original message stored
-        if message.id in original_messages:
-            original_data = original_messages[message.id]
-            
+        # Get the original message from database
+        original_data = await MessageStorage.get_message(message.id)
+        
+        if original_data:
             # Check if the user is an admin - if yes, skip deletion
             if await is_admin(message.chat.id, message.from_user.id):
                 logger.info(f"Skipping deletion - {message.from_user.first_name} is an admin")
                 # Remove from storage but don't delete the message
-                del original_messages[message.id]
+                await MessageStorage.delete_message(message.id)
                 return
             
             # Delete the edited message (only for non-admins)
@@ -90,8 +147,8 @@ async def handle_edited_message(client: Client, message: Message):
                 parse_mode=ParseMode.HTML
             )
             
-            # Remove the message from our storage
-            del original_messages[message.id]
+            # Remove the message from database
+            await MessageStorage.delete_message(message.id)
             
     except Exception as e:
         logger.error(f"Error handling edited message: {e}")
@@ -124,6 +181,7 @@ async def start_command(client: Client, message: Message):
 ✅ 𝐀𝐮𝐭𝐨𝐦𝐚𝐭𝐢𝐜𝐚𝐥𝐥𝐲 𝐝𝐞𝐥𝐞𝐭𝐞 𝐞𝐝𝐢𝐭𝐞𝐝 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬 (𝐄𝐱𝐜𝐞𝐩𝐭 𝐟𝐫𝐨𝐦 𝐚𝐝𝐦𝐢𝐧𝐬).
 ✅ 𝐍𝐨𝐭𝐢𝐟𝐲 𝐰𝐡𝐞𝐧 𝐚 𝐦𝐞𝐬𝐬𝐚𝐠𝐞 𝐢𝐬 𝐞𝐝𝐢𝐭𝐞𝐝.
 ✅ 𝐄𝐚𝐬𝐲 𝐭𝐨 𝐚𝐝𝐝 𝐭𝐨 𝐲𝐨𝐮𝐫 𝐠𝐫𝐨𝐮𝐩𝐬.
+✅ 𝐏𝐞𝐫𝐬𝐢𝐬𝐭𝐞𝐧𝐭 𝐬𝐭𝐨𝐫𝐚𝐠𝐞 𝐰𝐢𝐭𝐡 𝐌𝐨𝐧𝐠𝐨𝐃𝐁.
 
 <u>⚙️ 𝐒𝐞𝐭𝐮𝐩:</u>
 ⦿ 𝐀𝐝𝐝 𝐦𝐞 𝐭𝐨 𝐲𝐨𝐮𝐫 𝐠𝐫𝐨𝐮𝐩
@@ -149,16 +207,105 @@ async def status_command(client: Client, message: Message):
     try:
         bot_member = await client.get_chat_member(message.chat.id, (await client.get_me()).id)
         
+        # Check database connection
+        try:
+            await client.admin.command('ping')
+            db_status = "✅ Connected"
+        except:
+            db_status = "❌ Disconnected"
+        
+        # Get message count in database for this chat
+        message_count = await messages_collection.count_documents({"chat_id": message.chat.id})
+        
         if bot_member.privileges and bot_member.privileges.can_delete_messages:
-            status_text = "✅ Bot is working properly! I have permission to delete messages.\n\n📝 Note: Admin messages won't be deleted when edited."
+            status_text = f"""✅ **Bot is working properly!**
+
+🔧 **Permissions:** Delete messages ✅
+🗄️ **Database:** {db_status}
+📊 **Stored messages:** {message_count}
+
+📝 **Note:** Admin messages won't be deleted when edited."""
         else:
-            status_text = "⚠️ Bot needs admin rights with 'Delete Messages' permission to work properly."
+            status_text = f"""⚠️ **Bot needs admin rights!**
+
+🔧 **Required:** Delete Messages permission
+🗄️ **Database:** {db_status}
+📊 **Stored messages:** {message_count}
+
+Please make me admin with delete messages permission."""
             
-        await message.reply_text(status_text)
+        await message.reply_text(status_text, parse_mode=ParseMode.MARKDOWN)
         
     except Exception as e:
         logger.error(f"Error checking status: {e}")
         await message.reply_text("❌ Error checking bot status.")
+
+@app.on_message(filters.command("cleanup") & filters.private)
+async def cleanup_command(client: Client, message: Message):
+    """Manual cleanup command (owner only)"""
+    try:
+        # Check if user is the owner (replace with your user ID)
+        if message.from_user.id != 6878311635:
+            await message.reply_text("❌ This command is only for the bot owner.")
+            return
+        
+        await MessageStorage.cleanup_old_messages()
+        
+        # Get total message count
+        total_messages = await messages_collection.count_documents({})
+        
+        await message.reply_text(
+            f"🧹 **Database cleanup completed!**\n\n"
+            f"📊 **Total messages in database:** {total_messages}",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in cleanup command: {e}")
+        await message.reply_text("❌ Error during cleanup.")
+
+@app.on_message(filters.command("stats") & filters.private)
+async def stats_command(client: Client, message: Message):
+    """Database statistics (owner only)"""
+    try:
+        # Check if user is the owner
+        if message.from_user.id != 6878311635:
+            await message.reply_text("❌ This command is only for the bot owner.")
+            return
+        
+        # Get statistics
+        total_messages = await messages_collection.count_documents({})
+        
+        # Get top 5 most active chats
+        pipeline = [
+            {"$group": {"_id": "$chat_id", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]
+        
+        top_chats = await messages_collection.aggregate(pipeline).to_list(5)
+        
+        stats_text = f"""📊 **Database Statistics**
+
+📈 **Total stored messages:** {total_messages}
+
+🏆 **Top 5 most active chats:**
+"""
+        
+        for i, chat in enumerate(top_chats, 1):
+            try:
+                chat_info = await client.get_chat(chat["_id"])
+                chat_name = chat_info.title or f"Chat {chat['_id']}"
+            except:
+                chat_name = f"Chat {chat['_id']}"
+            
+            stats_text += f"{i}. {chat_name}: {chat['count']} messages\n"
+        
+        await message.reply_text(stats_text, parse_mode=ParseMode.MARKDOWN)
+        
+    except Exception as e:
+        logger.error(f"Error in stats command: {e}")
+        await message.reply_text("❌ Error retrieving statistics.")
 
 @app.on_message(filters.new_chat_members)
 async def welcome_new_member(client: Client, message: Message):
@@ -172,11 +319,16 @@ async def welcome_new_member(client: Client, message: Message):
                 welcome_text = f"""
 🎉 **Thanks for adding me to {message.chat.title}!**
 
-I'm now monitoring this group for edited messages. 
+I'm now monitoring this group for edited messages with persistent MongoDB storage.
 
 **Important:** Please make me an admin with "Delete Messages" permission so I can work properly.
 
 **Note:** I won't delete edited messages from group admins.
+
+**Features:**
+✅ Persistent storage - data survives restarts
+✅ Automatic cleanup of old messages (7 days)
+✅ Real-time edit monitoring
 
 Use /status to check if I'm configured correctly.
                 """
@@ -197,19 +349,53 @@ Use /status to check if I'm configured correctly.
     except Exception as e:
         logger.error(f"Error in welcome message: {e}")
 
+# Periodic cleanup task
+async def periodic_cleanup():
+    """Run cleanup every 24 hours"""
+    while True:
+        try:
+            await asyncio.sleep(86400)  # 24 hours
+            await MessageStorage.cleanup_old_messages()
+            logger.info("Periodic cleanup completed")
+        except Exception as e:
+            logger.error(f"Error in periodic cleanup: {e}")
+
 # Error handler
 @app.on_message(filters.all, group=-300)
 async def error_handler(client: Client, message: Message):
     """Global error handler"""
     pass  # Just to catch any unhandled errors
 
+async def startup():
+    """Startup tasks"""
+    try:
+        # Test database connection
+        await client.admin.command('ping')
+        logger.info("✅ MongoDB connection successful")
+        
+        # Create index for better performance
+        await messages_collection.create_index([("timestamp", 1)])
+        await messages_collection.create_index([("chat_id", 1)])
+        
+        # Start periodic cleanup task
+        asyncio.create_task(periodic_cleanup())
+        
+    except Exception as e:
+        logger.error(f"❌ Database connection failed: {e}")
+        print("❌ Failed to connect to MongoDB. Please check your MONGODB_URI.")
+
 if __name__ == "__main__":
-    print("🤖 Starting Edit Delete Bot...")
+    print("🤖 Starting Edit Delete Bot with MongoDB...")
     print("📝 Make sure to:")
-    print("   1. Replace API_ID, API_HASH, and BOT_TOKEN with your actual values")
-    print("   2. Install pyrogram: pip install pyrogram")
+    print("   1. Replace API_ID, API_HASH, BOT_TOKEN, and MONGODB_URI in config.py")
+    print("   2. Install required packages:")
+    print("      pip install pyrogram motor")
     print("   3. Make the bot admin in groups with delete messages permission")
     print("   4. Admins can edit messages without deletion")
-    print("🚀 Bot is running...")
+    print("   5. Database automatically cleans up messages older than 7 days")
+    print("🚀 Bot is running with persistent MongoDB storage...")
+    
+    # Run startup tasks
+    asyncio.get_event_loop().run_until_complete(startup())
     
     app.run()
