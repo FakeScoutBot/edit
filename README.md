@@ -220,6 +220,6 @@ This project is licensed under the MIT License. See `LICENSE` file for details.
   
   **⭐ Star this repo if you find it useful!**
   
-  ![GitHub stars](https://img.shields.io/github/stars/FakeScoutBot/edit-guard-bot?style=social)
-  ![GitHub forks](https://img.shields.io/github/forks/FakeScoutBot/edit-guard-bot?style=social)
+  ![GitHub stars](https://img.shields.io/github/stars/FakeScoutBot/edit?style=social)
+  ![GitHub forks](https://img.shields.io/github/forks/FakeScoutBot/edit?style=social)
 </div>
