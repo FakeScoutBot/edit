@@ -1,6 +1,6 @@
 import asyncio
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, LinkPreviewOptions
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode, ChatMemberStatus
 from pyrogram.errors import MessageDeleteForbidden, ChatAdminRequired
 import logging
@@ -157,9 +157,6 @@ async def handle_edited_message(client: Client, message: Message):
 async def start_command(client: Client, message: Message):
     """Handle /start command"""
     try:
-        import requests
-        import json
-        
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(
                 "➕ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ", 
@@ -175,7 +172,8 @@ async def start_command(client: Client, message: Message):
         user_mention = f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>"
         bot_mention = f"<a href='tg://user?id={bot_info.id}'>{bot_info.first_name}</a>"
         
-        welcome_text = f"""👋 𝐇𝐞𝐲, {user_mention}
+        welcome_text = f"""
+👋 𝐇𝐞𝐲, {user_mention}
 
 𝐈 𝐚𝐦 {bot_mention} ♡ 
 
@@ -190,75 +188,19 @@ async def start_command(client: Client, message: Message):
 ⦿ 𝐌𝐚𝐤𝐞 𝐦𝐞 𝐚𝐧 𝐚𝐝𝐦𝐢𝐧 𝐰𝐢𝐭𝐡 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞 𝐩𝐞𝐫𝐦𝐢𝐬𝐬𝐢𝐨𝐧
 ⦿ 𝐈'𝐥𝐥 𝐬𝐭𝐚𝐫𝐭 𝐦𝐨𝐧𝐢𝐭𝐨𝐫𝐢𝐧𝐠 𝐚𝐮𝐭𝐨𝐦𝐚𝐭𝐢𝐜𝐚𝐥𝐥𝐲!
 
-<u>⚠️ 𝐍𝐨𝐭𝐞:</u> 𝐈 𝐧𝐞𝐞𝐝 𝐚𝐝𝐦𝐢𝐧 𝐫𝐢𝐠𝐡𝐭𝐬 𝐭𝐨 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬. 𝐀𝐝𝐦𝐢𝐧 𝐌𝐞𝐬𝐬𝐚𝐠𝐞𝐬 𝐰𝐨𝐧'𝐭 𝐛𝐞 𝐝𝐞𝐥𝐞𝐭𝐞𝐝 𝐰𝐡𝐞𝐧 𝐞𝐝𝐢𝐭𝐞𝐝."""
+<u>⚠️ 𝐍𝐨𝐭𝐞:</u> 𝐈 𝐧𝐞𝐞𝐝 𝐚𝐝𝐦𝐢𝐧 𝐫𝐢𝐠𝐡𝐭𝐬 𝐭𝐨 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬. 𝐀𝐝𝐦𝐢𝐧 𝐌𝐞𝐬𝐬𝐚𝐠𝐞𝐬 𝐰𝐨𝐧'𝐭 𝐛𝐞 𝐝𝐞𝐥𝐞𝐭𝐞𝐝 𝐰𝐡𝐞𝐧 𝐞𝐝𝐢𝐭𝐞𝐝.
+        """
         
-        # Add the image URL at the end for web preview
-        welcome_text_with_link = welcome_text + f"\n\n<a href='https://files.catbox.moe/0yiidk.jpg'>&#8203;</a>"
-        
-        # Using Telegram Bot API with requests to send message with web preview
-        bot_token = BOT_TOKEN
-        chat_id = message.chat.id
-        
-        # Prepare the keyboard for API call
-        reply_markup = {
-            "inline_keyboard": [
-                [
-                    {
-                        "text": "➕ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ",
-                        "url": f"https://t.me/{(await client.get_me()).username}?startgroup=true"
-                    }
-                ],
-                [
-                    {
-                        "text": "👤 ᴏᴡɴᴇʀ",
-                        "url": "tg://user?id=6878311635"
-                    },
-                    {
-                        "text": "🤝 Sᴜᴘᴘᴏʀᴛ",
-                        "url": "https://t.me/FearlessCheats"
-                    }
-                ]
-            ]
-        }
-        
-        # Send message with web preview using requests
-        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        
-        data = {
-            "chat_id": chat_id,
-            "text": welcome_text_with_link,
-            "parse_mode": "HTML",
-            "reply_markup": json.dumps(reply_markup),
-            "link_preview_options": json.dumps({
-                "url": "https://files.catbox.moe/0yiidk.jpg",
-                "prefer_large_media": True,
-                "show_above_text": True
-            })
-        }
-        
-        # Make the API call
-        response = requests.post(url, data=data)
-        
-        if response.status_code != 200:
-            logger.error(f"API call failed: {response.text}")
-            # Fallback to pyrogram method if API call fails
-            await message.reply_text(
-                welcome_text_with_link,
-                reply_markup=keyboard,
-                parse_mode=ParseMode.HTML
-            )
+        await message.reply_text(
+            welcome_text,
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
+            parse_mode=ParseMode.HTML
+        )
         
     except Exception as e:
         logger.error(f"Error in start command: {e}")
-        # Fallback message without photo
-        try:
-            await message.reply_text(
-                welcome_text,
-                reply_markup=keyboard,
-                parse_mode=ParseMode.HTML
-            )
-        except:
-            await message.reply_text("❌ Error sending welcome message.")
+
 @app.on_message(filters.command("status") & filters.group)
 async def status_command(client: Client, message: Message):
     """Check bot status in group"""
