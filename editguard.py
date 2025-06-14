@@ -192,7 +192,10 @@ async def start_command(client: Client, message: Message):
 
 <u>⚠️ 𝐍𝐨𝐭𝐞:</u> 𝐈 𝐧𝐞𝐞𝐝 𝐚𝐝𝐦𝐢𝐧 𝐫𝐢𝐠𝐡𝐭𝐬 𝐭𝐨 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬. 𝐀𝐝𝐦𝐢𝐧 𝐌𝐞𝐬𝐬𝐚𝐠𝐞𝐬 𝐰𝐨𝐧'𝐭 𝐛𝐞 𝐝𝐞𝐥𝐞𝐭𝐞𝐝 𝐰𝐡𝐞𝐧 𝐞𝐝𝐢𝐭𝐞𝐝."""
         
-        # Using Telegram Bot API with requests to send photo with caption
+        # Add the image URL at the end for web preview
+        welcome_text_with_link = welcome_text + f"\n\n<a href='https://files.catbox.moe/0yiidk.jpg'>&#8203;</a>"
+        
+        # Using Telegram Bot API with requests to send message with web preview
         bot_token = BOT_TOKEN
         chat_id = message.chat.id
         
@@ -218,15 +221,19 @@ async def start_command(client: Client, message: Message):
             ]
         }
         
-        # Send photo with caption using requests
-        url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+        # Send message with web preview using requests
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         
         data = {
             "chat_id": chat_id,
-            "photo": "https://files.catbox.moe/0yiidk.jpg",
-            "caption": welcome_text,
+            "text": welcome_text_with_link,
             "parse_mode": "HTML",
-            "reply_markup": json.dumps(reply_markup)
+            "reply_markup": json.dumps(reply_markup),
+            "link_preview_options": json.dumps({
+                "url": "https://files.catbox.moe/0yiidk.jpg",
+                "prefer_large_media": True,
+                "show_above_text": True
+            })
         }
         
         # Make the API call
@@ -236,7 +243,7 @@ async def start_command(client: Client, message: Message):
             logger.error(f"API call failed: {response.text}")
             # Fallback to pyrogram method if API call fails
             await message.reply_text(
-                welcome_text,
+                welcome_text_with_link,
                 reply_markup=keyboard,
                 parse_mode=ParseMode.HTML
             )
