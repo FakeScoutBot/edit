@@ -157,6 +157,8 @@ async def handle_edited_message(client: Client, message: Message):
 async def start_command(client: Client, message: Message):
     """Handle /start command"""
     try:
+        import requests
+        
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(
                 "➕ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ", 
@@ -187,27 +189,67 @@ async def start_command(client: Client, message: Message):
 ⦿ 𝐌𝐚𝐤𝐞 𝐦𝐞 𝐚𝐧 𝐚𝐝𝐦𝐢𝐧 𝐰𝐢𝐭𝐡 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞 𝐩𝐞𝐫𝐦𝐢𝐬𝐬𝐢𝐨𝐧
 ⦿ 𝐈'𝐥𝐥 𝐬𝐭𝐚𝐫𝐭 𝐦𝐨𝐧𝐢𝐭𝐨𝐫𝐢𝐧𝐠 𝐚𝐮𝐭𝐨𝐦𝐚𝐭𝐢𝐜𝐚𝐥𝐥𝐲!
 
-<u>⚠️ 𝐍𝐨𝐭𝐞:</u> 𝐈 𝐧𝐞𝐞𝐝 𝐚𝐝𝐦𝐢𝐧 𝐫𝐢𝐠𝐡𝐭𝐬 𝐭𝐨 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬. 𝐀𝐝𝐦𝐢𝐧 𝐌𝐞𝐬𝐬𝐚𝐠𝐞𝐬 𝐰𝐨𝐧'𝐭 𝐛𝐞 𝐝𝐞𝐥𝐞𝐭𝐞𝐝 𝐰𝐡𝐞𝐧 𝐞𝐝𝐢𝐭𝐞𝐝.
-
-<a href="https://files.catbox.moe/0yiidk.jpg">&#8203;</a>"""
+<u>⚠️ 𝐍𝐨𝐭𝐞:</u> 𝐈 𝐧𝐞𝐞𝐝 𝐚𝐝𝐦𝐢𝐧 𝐫𝐢𝐠𝐡𝐭𝐬 𝐭𝐨 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬. 𝐀𝐝𝐦𝐢𝐧 𝐌𝐞𝐬𝐬𝐚𝐠𝐞𝐬 𝐰𝐨𝐧'𝐭 𝐛𝐞 𝐝𝐞𝐥𝐞𝐭𝐞𝐝 𝐰𝐡𝐞𝐧 𝐞𝐝𝐢𝐭𝐞𝐝."""
         
-        # Create LinkPreviewOptions to show the image above the text
-        link_preview_options = LinkPreviewOptions(
-            url="https://files.catbox.moe/0yiidk.jpg",
-            show_above_text=True,
-            prefer_large_media=True,
-            is_disabled=False
-        )
+        # Using Telegram Bot API with requests to send photo with caption
+        bot_token = BOT_TOKEN
+        chat_id = message.chat.id
         
-        await message.reply_text(
-            welcome_text,
-            reply_markup=keyboard,
-            link_preview_options=link_preview_options,
-            parse_mode=ParseMode.HTML
-        )
+        # Prepare the keyboard for API call
+        reply_markup = {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": "➕ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ",
+                        "url": f"https://t.me/{(await client.get_me()).username}?startgroup=true"
+                    }
+                ],
+                [
+                    {
+                        "text": "👤 ᴏᴡɴᴇʀ",
+                        "url": "tg://user?id=6878311635"
+                    },
+                    {
+                        "text": "🤝 Sᴜᴘᴘᴏʀᴛ",
+                        "url": "https://t.me/FearlessCheats"
+                    }
+                ]
+            ]
+        }
+        
+        # Send photo with caption using requests
+        url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+        
+        data = {
+            "chat_id": chat_id,
+            "photo": "https://files.catbox.moe/0yiidk.jpg",
+            "caption": welcome_text,
+            "parse_mode": "HTML",
+            "reply_markup": requests.packages.urllib3.util.json.dumps(reply_markup)
+        }
+        
+        # Make the API call
+        response = requests.post(url, data=data)
+        
+        if response.status_code != 200:
+            # Fallback to pyrogram method if API call fails
+            await message.reply_text(
+                welcome_text,
+                reply_markup=keyboard,
+                parse_mode=ParseMode.HTML
+            )
         
     except Exception as e:
         logger.error(f"Error in start command: {e}")
+        # Fallback message without photo
+        try:
+            await message.reply_text(
+                welcome_text,
+                reply_markup=keyboard,
+                parse_mode=ParseMode.HTML
+            )
+        except:
+            await message.reply_text("❌ Error sending welcome message.")
 
 @app.on_message(filters.command("status") & filters.group)
 async def status_command(client: Client, message: Message):
