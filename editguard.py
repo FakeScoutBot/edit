@@ -158,6 +158,7 @@ async def start_command(client: Client, message: Message):
     """Handle /start command"""
     try:
         import requests
+        import json
         
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(
@@ -225,13 +226,14 @@ async def start_command(client: Client, message: Message):
             "photo": "https://files.catbox.moe/0yiidk.jpg",
             "caption": welcome_text,
             "parse_mode": "HTML",
-            "reply_markup": requests.packages.urllib3.util.json.dumps(reply_markup)
+            "reply_markup": json.dumps(reply_markup)
         }
         
         # Make the API call
         response = requests.post(url, data=data)
         
         if response.status_code != 200:
+            logger.error(f"API call failed: {response.text}")
             # Fallback to pyrogram method if API call fails
             await message.reply_text(
                 welcome_text,
@@ -250,7 +252,6 @@ async def start_command(client: Client, message: Message):
             )
         except:
             await message.reply_text("❌ Error sending welcome message.")
-
 @app.on_message(filters.command("status") & filters.group)
 async def status_command(client: Client, message: Message):
     """Check bot status in group"""
