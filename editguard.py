@@ -1,6 +1,6 @@
 import asyncio
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, LinkPreviewOptions
 from pyrogram.enums import ParseMode, ChatMemberStatus
 from pyrogram.errors import MessageDeleteForbidden, ChatAdminRequired
 import logging
@@ -189,12 +189,21 @@ async def start_command(client: Client, message: Message):
 ⦿ 𝐈'𝐥𝐥 𝐬𝐭𝐚𝐫𝐭 𝐦𝐨𝐧𝐢𝐭𝐨𝐫𝐢𝐧𝐠 𝐚𝐮𝐭𝐨𝐦𝐚𝐭𝐢𝐜𝐚𝐥𝐥𝐲!
 
 <u>⚠️ 𝐍𝐨𝐭𝐞:</u> 𝐈 𝐧𝐞𝐞𝐝 𝐚𝐝𝐦𝐢𝐧 𝐫𝐢𝐠𝐡𝐭𝐬 𝐭𝐨 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬. 𝐀𝐝𝐦𝐢𝐧 𝐌𝐞𝐬𝐬𝐚𝐠𝐞𝐬 𝐰𝐨𝐧'𝐭 𝐛𝐞 𝐝𝐞𝐥𝐞𝐭𝐞𝐝 𝐰𝐡𝐞𝐧 𝐞𝐝𝐢𝐭𝐞𝐝.
+
+https://files.catbox.moe/0yiidk.jpg
         """
+        
+        # Create LinkPreviewOptions to show the image above the text
+        link_preview_options = LinkPreviewOptions(
+            url="https://files.catbox.moe/0yiidk.jpg",
+            show_above_text=True,
+            prefer_large_media=True
+        )
         
         await message.reply_text(
             welcome_text,
             reply_markup=keyboard,
-            disable_web_page_preview=True,
+            link_preview_options=link_preview_options,
             parse_mode=ParseMode.HTML
         )
         
