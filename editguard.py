@@ -85,13 +85,37 @@ async def is_admin(chat_id: int, user_id: int) -> bool:
         logger.error(f"Error checking admin status: {e}")
         return False
 
-def has_text_content_changed(original_text: str, current_text: str) -> bool:
-    """Check if the actual text content has changed (not just reactions)"""
-    if original_text is None and current_text is None:
-        return False
-    if original_text is None or current_text is None:
+def has_content_changed(original_text: str, current_message: Message) -> bool:
+    """Check if the actual content has changed (text, media, caption) - not just reactions"""
+    # Get current text content (from text or caption)
+    current_text = current_message.text or current_message.caption or ""
+    
+    # Normalize texts for comparison
+    original_text = (original_text or "").strip()
+    current_text = current_text.strip()
+    
+    # If text content changed, it's definitely an edit
+    if original_text != current_text:
         return True
-    return original_text.strip() != current_text.strip()
+    
+    # Check if media was added/removed (this indicates a real edit, not just reactions)
+    has_media = bool(current_message.photo or current_message.video or 
+                    current_message.document or current_message.audio or 
+                    current_message.voice or current_message.video_note or
+                    current_message.sticker or current_message.animation)
+    
+    # If there's media but the original was text-only, or vice versa, it's an edit
+    # We can infer this by checking if current message has media but stored as text-only
+    if has_media and original_text and not current_text:
+        # Media added, text moved to caption or removed
+        return True
+    
+    if not has_media and current_text and original_text != current_text:
+        # Media removed, text changed
+        return True
+    
+    # If we reach here, it's likely just reactions
+    return False
 
 @app.on_message(filters.group)
 async def store_original_message(client: Client, message: Message):
@@ -119,12 +143,10 @@ async def handle_edited_message(client: Client, message: Message):
         original_data = await MessageStorage.get_message(message.id)
         
         if original_data:
-            # Get current text content
-            current_text = message.text or message.caption or ""
             original_text = original_data.get("text", "")
             
-            # Check if the actual text content has changed (ignore reactions)
-            if not has_text_content_changed(original_text, current_text):
+            # Check if the actual content has changed (not just reactions)
+            if not has_content_changed(original_text, message):
                 logger.debug(f"Message {message.id} edit was likely just a reaction, ignoring")
                 return
             
@@ -132,6 +154,7 @@ async def handle_edited_message(client: Client, message: Message):
             if await is_admin(message.chat.id, message.from_user.id):
                 logger.info(f"Skipping deletion - {message.from_user.first_name} is an admin")
                 # Update the stored message with new content but don't delete
+                current_text = message.text or message.caption or ""
                 await MessageStorage.store_message(
                     message_id=message.id,
                     text=current_text,
@@ -247,7 +270,7 @@ async def status_command(client: Client, message: Message):
 📊 **Stored messages:** {message_count}
 
 📝 **Note:** Admin messages won't be deleted when edited.
-🎭 **Feature:** Reactions don't trigger message deletion."""
+🎭 **Feature:** Reactions don't trigger deletion, but media edits do."""
         else:
             status_text = f"""⚠️ **Bot needs admin rights!**
 
@@ -352,7 +375,7 @@ I'm now monitoring this group for edited messages with persistent MongoDB storag
 ✅ Persistent storage - data survives restarts
 ✅ Automatic cleanup of old messages (7 days)
 ✅ Real-time edit monitoring
-✅ Smart reaction detection - won't delete messages for reactions
+✅ Smart edit detection - handles text, media, and caption edits
 
 Use /status to check if I'm configured correctly.
                 """
@@ -417,7 +440,7 @@ if __name__ == "__main__":
     print("   3. Make the bot admin in groups with delete messages permission")
     print("   4. Admins can edit messages without deletion")
     print("   5. Database automatically cleans up messages older than 7 days")
-    print("   6. ✅ Fixed: Reactions won't trigger message deletion")
+    print("   6. ✅ Fixed: Smart detection - reactions ignored, media edits detected")
     print("🚀 Bot is running with persistent MongoDB storage...")
     
     # Run startup tasks
