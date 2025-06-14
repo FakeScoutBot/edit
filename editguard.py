@@ -85,6 +85,14 @@ async def is_admin(chat_id: int, user_id: int) -> bool:
         logger.error(f"Error checking admin status: {e}")
         return False
 
+def has_text_content_changed(original_text: str, current_text: str) -> bool:
+    """Check if the actual text content has changed (not just reactions)"""
+    if original_text is None and current_text is None:
+        return False
+    if original_text is None or current_text is None:
+        return True
+    return original_text.strip() != current_text.strip()
+
 @app.on_message(filters.group)
 async def store_original_message(client: Client, message: Message):
     """Store original messages to track edits"""
@@ -111,11 +119,25 @@ async def handle_edited_message(client: Client, message: Message):
         original_data = await MessageStorage.get_message(message.id)
         
         if original_data:
+            # Get current text content
+            current_text = message.text or message.caption or ""
+            original_text = original_data.get("text", "")
+            
+            # Check if the actual text content has changed (ignore reactions)
+            if not has_text_content_changed(original_text, current_text):
+                logger.debug(f"Message {message.id} edit was likely just a reaction, ignoring")
+                return
+            
             # Check if the user is an admin - if yes, skip deletion
             if await is_admin(message.chat.id, message.from_user.id):
                 logger.info(f"Skipping deletion - {message.from_user.first_name} is an admin")
-                # Remove from storage but don't delete the message
-                await MessageStorage.delete_message(message.id)
+                # Update the stored message with new content but don't delete
+                await MessageStorage.store_message(
+                    message_id=message.id,
+                    text=current_text,
+                    user_id=message.from_user.id,
+                    chat_id=message.chat.id
+                )
                 return
             
             # Delete the edited message (only for non-admins)
@@ -180,6 +202,7 @@ async def start_command(client: Client, message: Message):
 <u>⚡ 𝐅𝐞𝐚𝐭𝐮𝐫𝐞𝐬:</u>
 ✅ 𝐀𝐮𝐭𝐨𝐦𝐚𝐭𝐢𝐜𝐚𝐥𝐥𝐲 𝐝𝐞𝐥𝐞𝐭𝐞 𝐞𝐝𝐢𝐭𝐞𝐝 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬 (𝐄𝐱𝐜𝐞𝐩𝐭 𝐟𝐫𝐨𝐦 𝐚𝐝𝐦𝐢𝐧𝐬).
 ✅ 𝐍𝐨𝐭𝐢𝐟𝐲 𝐰𝐡𝐞𝐧 𝐚 𝐦𝐞𝐬𝐬𝐚𝐠𝐞 𝐢𝐬 𝐞𝐝𝐢𝐭𝐞𝐝.
+✅ 𝐈𝐠𝐧𝐨𝐫𝐞 𝐫𝐞𝐚𝐜𝐭𝐢𝐨𝐧𝐬 - 𝐨𝐧𝐥𝐲 𝐝𝐞𝐥𝐞𝐭𝐞 𝐚𝐜𝐭𝐮𝐚𝐥 𝐭𝐞𝐱𝐭 𝐞𝐝𝐢𝐭𝐬.
 ✅ 𝐄𝐚𝐬𝐲 𝐭𝐨 𝐚𝐝𝐝 𝐭𝐨 𝐲𝐨𝐮𝐫 𝐠𝐫𝐨𝐮𝐩𝐬.
 ✅ 𝐏𝐞𝐫𝐬𝐢𝐬𝐭𝐞𝐧𝐭 𝐬𝐭𝐨𝐫𝐚𝐠𝐞 𝐰𝐢𝐭𝐡 𝐌𝐨𝐧𝐠𝐨𝐃𝐁.
 
@@ -224,7 +247,8 @@ async def status_command(client: Client, message: Message):
 🗄️ **Database:** {db_status}
 📊 **Stored messages:** {message_count}
 
-📝 **Note:** Admin messages won't be deleted when edited."""
+📝 **Note:** Admin messages won't be deleted when edited.
+🎭 **Feature:** Reactions don't trigger message deletion."""
         else:
             status_text = f"""⚠️ **Bot needs admin rights!**
 
@@ -329,6 +353,7 @@ I'm now monitoring this group for edited messages with persistent MongoDB storag
 ✅ Persistent storage - data survives restarts
 ✅ Automatic cleanup of old messages (7 days)
 ✅ Real-time edit monitoring
+✅ Smart reaction detection - won't delete messages for reactions
 
 Use /status to check if I'm configured correctly.
                 """
@@ -393,6 +418,7 @@ if __name__ == "__main__":
     print("   3. Make the bot admin in groups with delete messages permission")
     print("   4. Admins can edit messages without deletion")
     print("   5. Database automatically cleans up messages older than 7 days")
+    print("   6. ✅ Fixed: Reactions won't trigger message deletion")
     print("🚀 Bot is running with persistent MongoDB storage...")
     
     # Run startup tasks
