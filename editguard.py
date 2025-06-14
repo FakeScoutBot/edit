@@ -172,8 +172,7 @@ async def start_command(client: Client, message: Message):
         user_mention = f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>"
         bot_mention = f"<a href='tg://user?id={bot_info.id}'>{bot_info.first_name}</a>"
         
-        welcome_text = f"""
-👋 𝐇𝐞𝐲, {user_mention}
+        welcome_text = f"""👋 𝐇𝐞𝐲, {user_mention}
 
 𝐈 𝐚𝐦 {bot_mention} ♡ 
 
@@ -190,14 +189,14 @@ async def start_command(client: Client, message: Message):
 
 <u>⚠️ 𝐍𝐨𝐭𝐞:</u> 𝐈 𝐧𝐞𝐞𝐝 𝐚𝐝𝐦𝐢𝐧 𝐫𝐢𝐠𝐡𝐭𝐬 𝐭𝐨 𝐝𝐞𝐥𝐞𝐭𝐞 𝐦𝐞𝐬𝐬𝐚𝐠𝐞𝐬. 𝐀𝐝𝐦𝐢𝐧 𝐌𝐞𝐬𝐬𝐚𝐠𝐞𝐬 𝐰𝐨𝐧'𝐭 𝐛𝐞 𝐝𝐞𝐥𝐞𝐭𝐞𝐝 𝐰𝐡𝐞𝐧 𝐞𝐝𝐢𝐭𝐞𝐝.
 
-https://files.catbox.moe/0yiidk.jpg
-        """
+<a href="https://files.catbox.moe/0yiidk.jpg">&#8203;</a>"""
         
         # Create LinkPreviewOptions to show the image above the text
         link_preview_options = LinkPreviewOptions(
             url="https://files.catbox.moe/0yiidk.jpg",
             show_above_text=True,
-            prefer_large_media=True
+            prefer_large_media=True,
+            is_disabled=False
         )
         
         await message.reply_text(
