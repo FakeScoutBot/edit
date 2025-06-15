@@ -1,7 +1,7 @@
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.enums import ParseMode, ChatMemberStatus
+from pyrogram.enums import ParseMode, ChatMemberStatus, MessageMediaType
 from pyrogram.errors import MessageDeleteForbidden, ChatAdminRequired
 import logging
 from datetime import datetime, timedelta
@@ -24,7 +24,7 @@ class MessageStorage:
     """MongoDB-based message storage"""
     
     @staticmethod
-    async def store_message(message_id: int, text: str, user_id: int, chat_id: int):
+    async def store_message(message_id: int, text: str, user_id: int, chat_id: int, media_type: str = None, has_media: bool = False):
         """Store original message in MongoDB"""
         try:
             document = {
@@ -32,6 +32,8 @@ class MessageStorage:
                 "text": text,
                 "user_id": user_id,
                 "chat_id": chat_id,
+                "media_type": media_type,
+                "has_media": has_media,
                 "timestamp": datetime.utcnow()
             }
             
@@ -85,19 +87,76 @@ async def is_admin(chat_id: int, user_id: int) -> bool:
         logger.error(f"Error checking admin status: {e}")
         return False
 
+def get_message_content_info(message: Message) -> tuple:
+    """Get comprehensive message content information for comparison"""
+    text_content = message.text or message.caption or ""
+    
+    # Check media type
+    media_type = None
+    has_media = False
+    
+    if message.media:
+        has_media = True
+        if message.photo:
+            media_type = "photo"
+        elif message.video:
+            media_type = "video"
+        elif message.audio:
+            media_type = "audio"
+        elif message.voice:
+            media_type = "voice"
+        elif message.video_note:
+            media_type = "video_note"
+        elif message.document:
+            media_type = "document"
+        elif message.sticker:
+            media_type = "sticker"
+        elif message.animation:
+            media_type = "animation"
+        elif message.location:
+            media_type = "location"
+        elif message.venue:
+            media_type = "venue"
+        elif message.contact:
+            media_type = "contact"
+        elif message.poll:
+            media_type = "poll"
+        else:
+            media_type = "other"
+    
+    return text_content, media_type, has_media
+
+def is_content_edited(original_data: dict, current_message: Message) -> bool:
+    """Check if the actual message content was edited (not just reactions)"""
+    current_text, current_media_type, current_has_media = get_message_content_info(current_message)
+    
+    # Compare text content
+    text_changed = original_data["text"] != current_text
+    
+    # Compare media information
+    media_changed = (
+        original_data.get("media_type") != current_media_type or
+        original_data.get("has_media", False) != current_has_media
+    )
+    
+    # Return True if either text or media content changed
+    return text_changed or media_changed
+
 @app.on_message(filters.group)
 async def store_original_message(client: Client, message: Message):
     """Store original messages to track edits"""
     try:
-        # Only store messages that have text or caption
-        if message.text or message.caption:
-            text_content = message.text or message.caption
+        # Store messages that have text, caption, or media
+        if message.text or message.caption or message.media:
+            text_content, media_type, has_media = get_message_content_info(message)
             
             await MessageStorage.store_message(
                 message_id=message.id,
                 text=text_content,
                 user_id=message.from_user.id,
-                chat_id=message.chat.id
+                chat_id=message.chat.id,
+                media_type=media_type,
+                has_media=has_media
             )
                 
     except Exception as e:
@@ -105,17 +164,30 @@ async def store_original_message(client: Client, message: Message):
 
 @app.on_edited_message(filters.group)
 async def handle_edited_message(client: Client, message: Message):
-    """Handle edited messages - delete them and send notification (skip admins)"""
+    """Handle edited messages - delete them and send notification (skip admins and reactions)"""
     try:
         # Get the original message from database
         original_data = await MessageStorage.get_message(message.id)
         
         if original_data:
+            # Check if this is just a reaction update (content hasn't changed)
+            if not is_content_edited(original_data, message):
+                logger.debug(f"Skipping deletion - message {message.id} only has reaction changes")
+                return
+            
             # Check if the user is an admin - if yes, skip deletion
             if await is_admin(message.chat.id, message.from_user.id):
                 logger.info(f"Skipping deletion - {message.from_user.first_name} is an admin")
-                # Remove from storage but don't delete the message
-                await MessageStorage.delete_message(message.id)
+                # Update the stored message with new content but don't delete
+                current_text, current_media_type, current_has_media = get_message_content_info(message)
+                await MessageStorage.store_message(
+                    message_id=message.id,
+                    text=current_text,
+                    user_id=message.from_user.id,
+                    chat_id=message.chat.id,
+                    media_type=current_media_type,
+                    has_media=current_has_media
+                )
                 return
             
             # Delete the edited message (only for non-admins)
@@ -329,6 +401,7 @@ I'm now monitoring this group for edited messages with persistent MongoDB storag
 ✅ Persistent storage - data survives restarts
 ✅ Automatic cleanup of old messages (7 days)
 ✅ Real-time edit monitoring
+✅ Ignores reaction-only changes
 
 Use /status to check if I'm configured correctly.
                 """
@@ -393,6 +466,7 @@ if __name__ == "__main__":
     print("   3. Make the bot admin in groups with delete messages permission")
     print("   4. Admins can edit messages without deletion")
     print("   5. Database automatically cleans up messages older than 7 days")
+    print("   6. Reactions won't trigger message deletion")
     print("🚀 Bot is running with persistent MongoDB storage...")
     
     # Run startup tasks
