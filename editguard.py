@@ -24,7 +24,7 @@ class MessageStorage:
     """MongoDB-based message storage"""
     
     @staticmethod
-    async def store_message(message_id: int, text: str, user_id: int, chat_id: int, media_type: str = None, has_media: bool = False):
+    async def store_message(message_id: int, text: str, user_id: int, chat_id: int, media_type: str = None, has_media: bool = False, file_id: str = None):
         """Store original message in MongoDB"""
         try:
             document = {
@@ -34,6 +34,7 @@ class MessageStorage:
                 "chat_id": chat_id,
                 "media_type": media_type,
                 "has_media": has_media,
+                "file_id": file_id,
                 "timestamp": datetime.utcnow()
             }
             
@@ -91,44 +92,58 @@ def get_message_content_info(message: Message) -> tuple:
     """Get comprehensive message content information for comparison"""
     text_content = message.text or message.caption or ""
     
-    # Check media type
+    # Check media type and file ID
     media_type = None
     has_media = False
+    file_id = None
     
     if message.media:
         has_media = True
         if message.photo:
             media_type = "photo"
+            file_id = message.photo.file_id
         elif message.video:
             media_type = "video"
+            file_id = message.video.file_id
         elif message.audio:
             media_type = "audio"
+            file_id = message.audio.file_id
         elif message.voice:
             media_type = "voice"
+            file_id = message.voice.file_id
         elif message.video_note:
             media_type = "video_note"
+            file_id = message.video_note.file_id
         elif message.document:
             media_type = "document"
+            file_id = message.document.file_id
         elif message.sticker:
             media_type = "sticker"
+            file_id = message.sticker.file_id
         elif message.animation:
             media_type = "animation"
+            file_id = message.animation.file_id
         elif message.location:
             media_type = "location"
+            # Location doesn't have file_id, use coordinates as identifier
+            file_id = f"{message.location.latitude},{message.location.longitude}"
         elif message.venue:
             media_type = "venue"
+            file_id = f"{message.venue.location.latitude},{message.venue.location.longitude}"
         elif message.contact:
             media_type = "contact"
+            file_id = f"{message.contact.phone_number}_{message.contact.first_name}"
         elif message.poll:
             media_type = "poll"
+            file_id = message.poll.id
         else:
             media_type = "other"
     
-    return text_content, media_type, has_media
+    return text_content, media_type, has_media, file_id
 
 def is_content_edited(original_data: dict, current_message: Message) -> bool:
     """Check if the actual message content was edited (not just reactions)"""
-    current_text, current_media_type, current_has_media = get_message_content_info(current_message)
+    current_text, current_media_type, current_has_media, current_file_id = get_message_content_info(current_message)
     
     # Compare text content
     text_changed = original_data["text"] != current_text
@@ -139,8 +154,11 @@ def is_content_edited(original_data: dict, current_message: Message) -> bool:
         original_data.get("has_media", False) != current_has_media
     )
     
-    # Return True if either text or media content changed
-    return text_changed or media_changed
+    # Compare file ID (detects photo/media replacement)
+    file_changed = original_data.get("file_id") != current_file_id
+    
+    # Return True if text, media, or file content changed
+    return text_changed or media_changed or file_changed
 
 @app.on_message(filters.group)
 async def store_original_message(client: Client, message: Message):
@@ -148,7 +166,7 @@ async def store_original_message(client: Client, message: Message):
     try:
         # Store messages that have text, caption, or media
         if message.text or message.caption or message.media:
-            text_content, media_type, has_media = get_message_content_info(message)
+            text_content, media_type, has_media, file_id = get_message_content_info(message)
             
             await MessageStorage.store_message(
                 message_id=message.id,
@@ -156,7 +174,8 @@ async def store_original_message(client: Client, message: Message):
                 user_id=message.from_user.id,
                 chat_id=message.chat.id,
                 media_type=media_type,
-                has_media=has_media
+                has_media=has_media,
+                file_id=file_id
             )
                 
     except Exception as e:
@@ -179,14 +198,15 @@ async def handle_edited_message(client: Client, message: Message):
             if await is_admin(message.chat.id, message.from_user.id):
                 logger.info(f"Skipping deletion - {message.from_user.first_name} is an admin")
                 # Update the stored message with new content but don't delete
-                current_text, current_media_type, current_has_media = get_message_content_info(message)
+                current_text, current_media_type, current_has_media, current_file_id = get_message_content_info(message)
                 await MessageStorage.store_message(
                     message_id=message.id,
                     text=current_text,
                     user_id=message.from_user.id,
                     chat_id=message.chat.id,
                     media_type=current_media_type,
-                    has_media=current_has_media
+                    has_media=current_has_media,
+                    file_id=current_file_id
                 )
                 return
             
