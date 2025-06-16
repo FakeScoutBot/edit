@@ -54,17 +54,17 @@
    - Get your connection URI
 
 4. **Configure the bot**
-   Edit the `config.py` file:
+   Edit the `.env` file:
    ```python
-   API_ID = 12345678  # Your API ID (integer)
-   API_HASH = "your_api_hash_here"
-   BOT_TOKEN = "your_bot_token_here"
-   MONGODB_URI = "your_mongo_string_here"
+   API_ID=12345678  # Your API ID (integer)
+   API_HASH=your_api_hash_here
+   BOT_TOKEN=your_bot_token_here
+   MONGODB_URI=your_mongo_string_here
    ```
 
 5. **Run the bot**
    ```bash
-   python editguard.py
+   python3 editguard.py
    ```
 
 ---
